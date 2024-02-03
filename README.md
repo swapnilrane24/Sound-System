@@ -2,7 +2,7 @@
  
 Description:
 Sound System is a simple system which can be used in Hyper/Hybrid/Casual games.
-I use objectpooling to reuse the AudioSource so we can play multiple sounds is needed.
+It use objectpooling to reuse the AudioSource for better performance and we can play multiple sounds at same time if needed.
 
 How To:
 1) Drag the SoundManager to the scene. SoundManager is the main entity which controls how we play the sound.

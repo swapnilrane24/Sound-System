@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace SoundSystem
 {
@@ -23,19 +24,25 @@ namespace SoundSystem
     {
         private static SoundManager instance;
 
+        [SerializeField] private AudioMixer mixer;
         [SerializeField] private AudioClip musicClip;
         [SerializeField] private SoundSource soundSourcePrefab;
         [SerializeField] private MusicVolumeController musicVolumeController;
+        [SerializeField] private int maxSoundInstances = 30;
+
         private List<SoundSource> deactiveSoundSourceList;
+        private Dictionary<AudioDataSO, int> audioCounts = new Dictionary<AudioDataSO, int>();
 
         public static SoundManager Instance { get => instance; }
 
-        private bool soundOn;
-        public bool IsSoundOn => soundOn;
+        private bool isMusicOn = true;
+        private bool isSfxOn = true;
+
+        private const string MusicMixer = "Music";
+        private const string SfxMixer = "SFX";
 
         private void Awake()
         {
-            AudioListener.volume = 0;
             if (instance == null)
             {
                 instance = this;
@@ -46,12 +53,15 @@ namespace SoundSystem
                 Destroy(gameObject);
             }
 
-            soundOn = PlayerPrefs.GetInt("GameSound", 1) == 1 ? true : false;//ES3.Load<bool>("GameSound", true);
+            isMusicOn = PlayerPrefs.GetInt("MusicOn", 1) == 1 ? true : false;//ES3.Load<bool>("GameSound", true);
+            isSfxOn = PlayerPrefs.GetInt("SfxOn", 1) == 1 ? true : false;//ES3.Load<bool>("GameSound", true);
+
+            mixer.SetFloat(MusicMixer, isMusicOn ? 0f : -80f);
+            mixer.SetFloat(SfxMixer, isSfxOn ? 0f : -80f);
         }
 
         private void Start()
         {
-            
             deactiveSoundSourceList = new List<SoundSource>();
 
             for (int i = 0; i < 5; i++)
@@ -59,42 +69,66 @@ namespace SoundSystem
                 SoundSource soundSource = SpawnSoundSource();
                 deactiveSoundSourceList.Add(soundSource);
             }
-
-
-
-            AudioListener.volume = soundOn == true ? 1 : 0;
-
-            //SoundOn(true, true);
-
-            musicVolumeController.StartMusic(musicClip);
         }
 
         public void RecheckSoundAfterAd()
         {
-            AudioListener.volume = soundOn == true ? 1 : 0;
-        }
-
-        //public void StartSoundIfPossible()
-        //{
-        //    if (soundOn)
-        //        AudioListener.volume = 1;
-        //}
-
-        public void ActivateAudio()
-        {
-            soundOn = true;
             AudioListener.volume = 1;
-            PlayerPrefs.SetInt("GameSound", 1);
-            //ES3.Save<bool>("GameSound", soundOn);
         }
 
-        public void DeactivateAudio()
+        public void ToggleMusic()
         {
-            soundOn = false;
-            AudioListener.volume = 0;
-            PlayerPrefs.SetInt("GameSound", 0);
+            isMusicOn = !isMusicOn;
+            mixer.SetFloat(MusicMixer, isMusicOn ? 0f : -80f);
+            PlayerPrefs.SetInt("MusicOn", isMusicOn ? 1 : 0);//ES3.Load<bool>("GameSound", true);
+        }
 
-            //ES3.Save<bool>("GameSound", soundOn);
+        public void ToggleSFX()
+        {
+            isSfxOn = !isSfxOn;
+            mixer.SetFloat(SfxMixer, isSfxOn ? 0f : -80f);
+            PlayerPrefs.SetInt("SfxOn", isSfxOn ? 1 : 0);//ES3.Load<bool>("GameSound", true);
+        }
+
+        public bool CanPlaySound(AudioDataSO audioData)
+        {
+            if (audioCounts.TryGetValue(audioData, out int count))
+            {
+                if(count >= maxSoundInstances)
+                    return false;
+            }
+
+            return true;
+        }
+
+        public void PlayMusic()
+        {
+            musicVolumeController.StartMusic(musicClip);
+        }
+
+        public void PlayMusic(AudioClip audioClip)
+        {
+            musicVolumeController.StartMusic(audioClip);
+        }
+
+        public void SwitchMusic(AudioClip audioClip)
+        {
+            musicVolumeController.SwitchMusic(audioClip);
+        }
+
+        public void Play(AudioDataSO audioData, out SoundSource soundSource)
+        {
+            SoundSource selectedAudioSource = GetSoundSource();
+            soundSource = selectedAudioSource;
+            float pitch = audioData.pitch;
+
+            if (audioData.randomPitchPercent != 0)
+            {
+                pitch *= 1 + Random.Range(-audioData.randomPitchPercent / 100,
+                    audioData.randomPitchPercent / 100);
+            }
+
+            selectedAudioSource.PlayAudio(audioData, pitch);
         }
 
         public void Play(AudioClip clip, float volumn, float RandomPitchPercent, out SoundSource soundSource)
@@ -110,14 +144,6 @@ namespace SoundSystem
             }
 
             selectedAudioSource.PlayAudio(clip, volumn, pitch);
-        }
-
-        public void Play(AudioClip clip, float volumn, float spatialBlend)
-        {
-            SoundSource selectedAudioSource = GetSoundSource();
-            float pitch = 1f;
-
-            selectedAudioSource.PlayAudio(clip, volumn, pitch, spatialBlend);
         }
 
         private SoundSource SpawnSoundSource()
@@ -152,15 +178,6 @@ namespace SoundSystem
                 deactiveSoundSourceList.Add(soundSource);
         }
 
-        public void StartMusic(AudioClip audioClip)
-        {
-            musicVolumeController.StartMusic(audioClip);
-        }
-
-        public void EndMusic()
-        {
-            musicVolumeController.EndMusic();
-        }
 
 
     }

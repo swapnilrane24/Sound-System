@@ -10,6 +10,7 @@ namespace SoundSystem
 
         public AudioSource AudioSource => audioSource;
 
+        private AudioDataSO audioData;
         private SoundManager _soundManager;
         private float activationTime;
 
@@ -39,15 +40,18 @@ namespace SoundSystem
             audioSource.Play();
         }
 
-        public void PlayAudio(AudioClip clip, float volume, float pitch, float spatialBlend)
+        public void PlayAudio(AudioDataSO audioData, float pitch)
         {
-            audioSource.clip = clip;
-            audioSource.volume = volume;
+            audioSource.clip = audioData.audioClip;
+            audioSource.volume = audioData.volumn;
             audioSource.pitch = pitch;
-            activationTime = clip.length * (1 + 0.1f);
+            audioSource.outputAudioMixerGroup = audioData.audioMixerGroup;
+            activationTime = audioData.audioClip.length * (1 + 0.1f);
             gameObject.SetActive(true);
             audioSource.Play();
         }
+
+
 
         public void StopAudio()
         {
